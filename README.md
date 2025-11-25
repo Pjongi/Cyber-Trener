@@ -48,13 +48,13 @@ Projekt wykorzystuje stos technologiczny oparty na języku **Python 3.10+**:
 ## Harmonogram pracy
 
 - [x] **Dokumentacja bibliotek oraz możliwych rozwiązań**
-- [ ] **Etap 1: Fundamenty (MVP)**
+- [x] **Etap 1: Fundamenty (MVP)**
     - [x] Komunikacja program - kamera
     - [x] Rozpoznawanie szkieletu człowieka (MediaPipe)
-    - [ ] **Implementacja modułu matematycznego (Core)**
-        - [ ] Autorska funkcja obliczania kątów 3D z wektorów (wymóg "funkcji niskopoziomowych")
-        - [ ] Wygładzanie drgań punktów (filtracja sygnału, np. średnia krocząca)
-    - [ ] Prosta wizualizacja kątów na ekranie (np. przy łokciu/kolanie)
+    - [x] **Implementacja modułu matematycznego (Core)**
+        - [x] Autorska funkcja obliczania kątów 3D z wektorów (wymóg "funkcji niskopoziomowych")
+        - [x] Wygładzanie drgań punktów (filtracja sygnału, np. średnia krocząca)
+    - [x] Prosta wizualizacja kątów na ekranie (np. przy łokciu/kolanie)
 - [ ] **Etap 2: Obsługa Drugiej Kamery**
     - [ ] Konfiguracja zewnętrznego źródła (np. aplikacja IP Webcam na telefonie)
     - [ ] **Implementacja wielowątkowości (Threading)** – pobieranie dwóch strumieni bez opóźnień
