@@ -1,93 +1,124 @@
 import cv2
+import time
 import config
 from core.pose_detector import PoseDetector
 from core.algorithm import Algorithm, SignalSmoother
 from ui.visualizer import Visualizer
+from ui.dashboard import CyberDashboard
 
 
 def main():
-    # Inicjalizacja klas
     detector = PoseDetector(min_conf=config.MIN_CONFIDENCE)
-    vis = Visualizer()
+    visualizer = Visualizer()  # ZMIANA NAZWY ZMIENNEJ DLA BEZPIECZEŃSTWA
+    tui = CyberDashboard(width=1920, height=1080)
 
-    # Filtr do wygładzania (żeby wynik nie latał)
-    elbow_smoother = SignalSmoother(alpha=0.15)
+    # Inicjalizacja wygładzania dla WSZYSTKICH stawów
+    joints = [
+        "Lokiec (L)", "Lokiec (P)",
+        "Bark (L)", "Bark (P)",
+        "Biodro (L)", "Biodro (P)",
+        "Kolano (L)", "Kolano (P)"
+    ]
+    smoothers = {name: SignalSmoother(0.15) for name in joints}
 
-    # Odpalamy kamerę
     cap = cv2.VideoCapture(config.CAMERA_ID)
+    cap.set(3, 1280)
+    cap.set(4, 720)
 
-    # Ustawienie rozdziałki na sztywno (czasem poprawia FPS)
-    cap.set(3, config.WIDTH)
-    cap.set(4, config.HEIGHT)
+    cv2.namedWindow(config.WINDOW_NAME, cv2.WINDOW_NORMAL)
+    cv2.setWindowProperty(config.WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
-    print(f"Start: {config.WINDOW_NAME}")
-    print("Q = wyjście")
+    prev_frame_time = 0
 
     while cap.isOpened():
         success, frame = cap.read()
         if not success:
-            print("Błąd klatki, pomijam.")
-            continue
+            print("Błąd kamery.")
+            break
 
-        # Detekcja pozy
+        new_frame_time = time.time()
+        fps = 1 / (new_frame_time - prev_frame_time) if (new_frame_time - prev_frame_time) > 0 else 0
+        prev_frame_time = new_frame_time
+
+        # 1. Detekcja
         results = detector.find_pose(frame)
 
-        # Rysowanie linii na obrazie
-        frame = vis.draw_skeleton(frame, results)
+        # Używamy zmiennej 'visualizer', nie 'vis'
+        processed_frame = visualizer.draw_skeleton(frame, results)
 
-        # Jeśli wykryto człowieka, liczymy kąty
+        # Domyślnie brak danych
+        current_angles = {k: None for k in smoothers.keys()}
+        status_msg = "SZUKAM..."
+
         if results.pose_landmarks:
-            landmarks = results.pose_landmarks.landmark
+            lm = results.pose_landmarks.landmark
             h, w, _ = frame.shape
 
-            # Pomocnicza: zamiana 0.0-1.0 na piksele
-            def get_coords(landmark):
-                return [landmark.x * w, landmark.y * h]
+            def get_coords(i):
+                return [lm[i].x * w, lm[i].y * h]
 
-            # Punkty prawej ręki: 12=bark, 14=łokieć, 16=nadgarstek
-            # Sprawdzamy, czy w ogóle widać łokieć (pewność > 50%)
-            elbow_visibility = landmarks[14].visibility
+            # POPRAWKA: Zmiana nazwy funkcji na 'check_vis'
+            def check_vis(i):
+                return lm[i].visibility > 0.5
 
-            if elbow_visibility > 0.5:
-                p_shoulder = get_coords(landmarks[12])
-                p_elbow = get_coords(landmarks[14])
-                p_wrist = get_coords(landmarks[16])
+            # Funkcja pomocnicza: Licz i wygładź jeśli punkty widoczne
+            def calc_and_smooth(name, i1, i2, i3):
+                if check_vis(i1) and check_vis(i2) and check_vis(i3):
+                    raw = Algorithm.calculate_angle_2d(get_coords(i1), get_coords(i2), get_coords(i3))
+                    val = smoothers[name].update(raw)
+                    current_angles[name] = val
 
-                # Liczymy kąt 2D (oś Z z kamery internetowej jest słaba)
-                raw_angle = Algorithm.calculate_angle_2d(p_shoulder, p_elbow, p_wrist)
+                    # Opcjonalnie: Rysuj kąt na obrazie wideo
+                    visualizer.draw_angle(processed_frame, (int(get_coords(i2)[0]), int(get_coords(i2)[1])), val)
+                    return val
+                return None
 
-                # Wygładzanie wyniku
-                smooth_angle = elbow_smoother.update(raw_angle)
+            # --- OBLICZENIA ---
+            # RĘCE
+            calc_and_smooth("Lokiec (L)", 11, 13, 15)
+            calc_and_smooth("Lokiec (P)", 12, 14, 16)
 
-                # Wyświetlanie wartości przy stawie
-                display_angle = int(round(smooth_angle))
-                vis.draw_angle(frame, (int(p_elbow[0]), int(p_elbow[1])), display_angle)
+            calc_and_smooth("Bark (L)", 13, 11, 23)
+            calc_and_smooth("Bark (P)", 14, 12, 24)
 
-                # Logika oceniania - proste warunki
-                # Tło pod napisy
-                cv2.rectangle(frame, (0, 0), (300, 80), (245, 117, 16), -1)
+            # NOGI
+            calc_and_smooth("Biodro (L)", 11, 23, 25)
+            calc_and_smooth("Biodro (P)", 12, 24, 26)
 
-                if smooth_angle > 160:
-                    status = "PROSTA REKA"
-                    color = (0, 255, 0)  # Zielony
-                elif smooth_angle < 90:
-                    status = "ZGIETA"
-                    color = (0, 0, 255)  # Czerwony
+            calc_and_smooth("Kolano (L)", 23, 25, 27)
+            calc_and_smooth("Kolano (P)", 24, 26, 28)
+
+            # --- STATUS ---
+            if current_angles["Lokiec (P)"] is not None:
+                angle = current_angles["Lokiec (P)"]
+                if angle > 160:
+                    status_msg = "PRAWA: PROSTA"
+                elif angle < 90:
+                    status_msg = "PRAWA: ZGIETA"
                 else:
-                    status = "RUCH..."
-                    color = (255, 255, 255)  # Biały
-
-                cv2.putText(frame, status, (10, 50),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1.5, color, 2, cv2.LINE_AA)
+                    status_msg = "PRAWA: RUCH"
+            elif current_angles["Lokiec (L)"] is not None:
+                angle = current_angles["Lokiec (L)"]
+                if angle > 160:
+                    status_msg = "LEWA: PROSTA"
+                else:
+                    status_msg = "LEWA: RUCH"
             else:
-                # Jak ręka ucieknie z kadru
-                cv2.putText(frame, "NIE WIDZE REKI", (10, 50),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                status_msg = "WIDZE SYLWETKE"
 
-        # Wyświetlenie okna
-        cv2.imshow(config.WINDOW_NAME, frame)
+        else:
+            status_msg = "BRAK CELU"
 
-        # Zamknięcie na 'q'
+        # Generowanie UI
+        final_interface = tui.compose(
+            frame_main=processed_frame,
+            angles_dict=current_angles,
+            status=status_msg,
+            fps=fps
+        )
+
+        cv2.imshow(config.WINDOW_NAME, final_interface)
+
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
