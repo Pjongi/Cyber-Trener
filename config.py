@@ -1,40 +1,27 @@
 # config.py
 
-# ==========================================
-# KONFIGURACJA ŹRÓDEŁ OBRAZU
-# ==========================================
-# Możesz używać:
-# 1. Liczb (int): np. 0, 1 (Kamery USB wpięte do komputera)
-# 2. Tekstu (str): np. "http://..." (IP Webcam z telefonu)
-
-# --- KAMERA 1: FRONT (Widok Główny) ---
-# Odkomentuj jedną z opcji:
-
-# Opcja A: Kamera USB (Domyślna w laptopie)
+# --- WARTOŚCI DOMYŚLNE (Nadpisywane przez Launcher) ---
 CAM_FRONT_ID = 0
+CAM_SIDE_ID = None
+USE_DUAL_CAMERA = False
 
-# Opcja B: Kamera IP (Telefon)
-# CAM_FRONT_ID = "http://192.168.0.101:8080/video"
+# --- KONFIGURACJA MODELI AI (Nowe) ---
+# YOLO: 'n' (nano), 's' (small), 'm' (medium), 'l' (large)
+MODEL_YOLO_SIZE = 'n'
+# MediaPipe: 0 (Lite), 1 (Full), 2 (Heavy)
+MODEL_MP_COMPLEXITY = 1
 
-
-# --- KAMERA 2: SIDE (Widok Boczny) ---
-# Odkomentuj jedną z opcji:
-
-# Opcja A: Druga kamera USB (np. na kablu)
-# CAM_SIDE_ID = 1
-
-# Opcja B: Kamera IP (Telefon)
-CAM_SIDE_ID = "http://10.77.20.83:8080/video"
-
-
-# --- TRYB PRACY ---
-# True = Uruchom obie kamery (jeśli zdefiniowane)
-# False = Tylko kamera FRONT
-USE_DUAL_CAMERA = True
-
-
-# --- POZOSTAŁE USTAWIENIA ---
-WINDOW_NAME = "Cyber Trener v2.2 - Hybrid Source"
+# --- USTAWIENIA GUI ---
+WINDOW_NAME = "Cyber Trener v4.0 - Refactored"
 WIDTH = 1280
 HEIGHT = 720
+
+# Wartości startowe dla suwaków
 MIN_CONFIDENCE = 0.5
+SMOOTH_FACTOR = 0.15
+
+# --- MAPOWANIE YOLO (Format COCO) ---
+KP_YOLO = {
+    "L_SH": 5, "R_SH": 6, "L_EL": 7, "R_EL": 8, "L_WR": 9, "R_WR": 10,
+    "L_HIP": 11, "R_HIP": 12, "L_KN": 13, "R_KN": 14, "L_ANK": 15, "R_ANK": 16
+}

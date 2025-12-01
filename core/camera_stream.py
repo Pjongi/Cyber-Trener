@@ -2,66 +2,97 @@ import cv2
 import threading
 import time
 
+
 class CameraStream:
     def __init__(self, src=0, name="Camera"):
-        """
-        Inicjalizuje strumień wideo w oddzielnym wątku.
-        src: 0, 1 (USB) lub "http://..." (IP Webcam)
-        """
-        self.stream = cv2.VideoCapture(src)
-        self.name = name
         self.src = src
+        self.name = name
+        self.stream = None
+        self.frame = None
+        self.grabbed = False
         self.stopped = False
+        self.error = False
 
-        # --- OPTYMALIZACJA (Hybrid Mode) ---
-
-        # 1. Tryb USB (lokalny) - jeśli źródło to liczba (np. 0)
-        if isinstance(src, int):
-            # Ustawiamy HD 1280x720
-            self.stream.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-            self.stream.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-            # MJPG jest znacznie szybszy na USB 2.0 (unikamy lagów przy HD)
-            self.stream.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-
-        # 2. Tryb IP / Sieciowy (WiFi) - jeśli źródło to tekst (URL)
-        else:
-            # Kluczowe dla IP Webcam: Zmniejszamy bufor do 1 klatki.
-            # Dzięki temu program zawsze bierze "najświeższą" klatkę,
-            # zamiast przetwarzać te sprzed 3 sekund (narastający lag).
-            self.stream.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-
-        # Próba pobrania pierwszej klatki (inicjalizacja)
-        # Jeśli się nie uda, self.frame pozostanie None (obsłużone w main.py)
-        (self.grabbed, self.frame) = self.stream.read()
+        # Próba pierwszego połączenia przy inicjalizacji
+        self._connect()
 
     def start(self):
-        # Uruchamiamy wątek w tle
+        """Uruchamia wątek i zwraca obiekt (chaining)"""
         t = threading.Thread(target=self.update, args=())
-        t.daemon = True # Wątek zginie automatycznie razem z głównym programem
+        t.daemon = True  # Wątek zginie razem z głównym programem
         t.start()
         return self
 
+    def _connect(self):
+        """Prywatna metoda do nawiązywania połączenia (z obsługą hybrydową)"""
+        if self.stream is not None:
+            self.stream.release()
+
+        print(f"[{self.name}] Próba łączenia z {self.src}...")
+        try:
+            self.stream = cv2.VideoCapture(self.src)
+
+            # --- OPTYMALIZACJA HYBRYDOWA ---
+            if isinstance(self.src, int):
+                # USB: Priorytet - Szybkość (MJPG, HD)
+                self.stream.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+                self.stream.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+                self.stream.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+            else:
+                # IP Webcam: Priorytet - Niskie opóźnienie
+                self.stream.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+            self.grabbed, self.frame = self.stream.read()
+            self.error = not self.grabbed
+
+            if self.error:
+                print(f"[{self.name}] Nie udało się pobrać pierwszej klatki.")
+
+        except Exception as e:
+            print(f"[{self.name}] Wyjątek przy łączeniu: {e}")
+            self.error = True
+
     def update(self):
-        # Pętla nieskończona działająca w tle
+        """Główna pętla wątku - pobiera klatki i wznawia połączenie"""
+        reconnect_interval = 3.0  # Co ile sekund próbować ponownie
+        last_reconnect_time = time.time()
+
         while True:
             if self.stopped:
-                self.stream.release()
+                if self.stream: self.stream.release()
                 return
 
-            (grabbed, frame) = self.stream.read()
+            # 1. Jeśli strumień działa poprawnie -> pobieraj klatki
+            if self.stream and self.stream.isOpened():
+                (grabbed, frame) = self.stream.read()
 
-            if grabbed:
-                # Aktualizujemy klatkę tylko gdy pobranie się uda
-                self.frame = frame
+                if grabbed:
+                    self.frame = frame
+                    self.grabbed = True
+                    self.error = False
+                else:
+                    self.grabbed = False
+                    self.error = True
             else:
-                # Jeśli zerwie połączenie (np. WiFi), czekamy chwilę
-                # Zapobiega to obciążeniu procesora w 100% pustymi pętlami
-                time.sleep(0.1)
+                self.error = True
+
+            # 2. Logika Auto-Reconnect (tylko gdy jest błąd)
+            if self.error:
+                if time.time() - last_reconnect_time > reconnect_interval:
+                    print(f"[{self.name}] Brak sygnału. Próba wznowienia...")
+                    self._connect()
+                    last_reconnect_time = time.time()
+                else:
+                    # Oszczędzamy procesor, gdy czekamy na reconnect
+                    time.sleep(0.1)
 
     def read(self):
-        # Zwraca ostatnią pomyślnie pobraną klatkę z bufora
+        """Zwraca ostatnią klatkę lub None (jeśli błąd)"""
+        # Jeśli jest błąd, zwróć None -> Dashboard narysuje szum
+        if self.error or not self.grabbed:
+            return None
         return self.frame
 
     def stop(self):
-        # Sygnał do zatrzymania wątku
+        """Zatrzymuje wątek"""
         self.stopped = True
