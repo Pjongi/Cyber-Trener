@@ -8,135 +8,94 @@ class CyberDashboard:
         self.W = width
         self.H = height
 
-        # Kolory (Cyberpunk / Matrix Theme)
+        # Kolory
         self.C_BG = (5, 10, 5)
-        self.C_MAIN = (0, 255, 0)  # Zieleń
-        self.C_DIM = (0, 80, 0)  # Ciemna zieleń
-        self.C_ALERT = (0, 0, 255)  # Czerwień
+        self.C_MAIN = (0, 255, 0)
+        self.C_DIM = (0, 80, 0)
+        self.C_ALERT = (0, 0, 255)
         self.C_WHITE = (200, 255, 200)
         self.C_YELLOW = (0, 255, 255)
 
-        self.side_w = 480  # Jeszcze szerszy panel, żeby pomieścić dane L/P
+        self.side_w = 480  # Szerokość panelu bocznego
         self.FONT = cv2.FONT_HERSHEY_PLAIN
 
     def _draw_box(self, img, x, y, w, h, title=""):
-        # Tło i Ramka
         cv2.rectangle(img, (x, y), (x + w, y + h), self.C_DIM, 1)
         cv2.rectangle(img, (x, y), (x + w, y + h), self.C_MAIN, 1)
-        # Ozdobniki (Rogi)
-        l = 15
-        cv2.line(img, (x, y), (x + l, y), self.C_MAIN, 2)
-        cv2.line(img, (x, y), (x, y + l), self.C_MAIN, 2)
-        cv2.line(img, (x + w, y), (x + w - l, y), self.C_MAIN, 2)
-        cv2.line(img, (x + w, y), (x + w, y + l), self.C_MAIN, 2)
-        cv2.line(img, (x, y + h), (x + l, y + h), self.C_MAIN, 2)
-        cv2.line(img, (x, y + h), (x, y + h - l), self.C_MAIN, 2)
-        cv2.line(img, (x + w, y + h), (x + w - l, y + h), self.C_MAIN, 2)
-        cv2.line(img, (x + w, y + h), (x + w, y + h - l), self.C_MAIN, 2)
-
         if title:
-            cv2.putText(img, f" {title} ", (x + 20, y + 10), self.FONT, 1.2, self.C_MAIN, 1)
+            cv2.putText(img, f" {title} ", (x + 20, y + 20), self.FONT, 1.2, self.C_MAIN, 1)
 
     def _draw_data_row(self, img, x, y, w, label, value):
-        """Rysuje wiersz. Jeśli value jest None, pokazuje '---'"""
-        # Label
         cv2.putText(img, label, (x + 10, y), self.FONT, 1.2, self.C_WHITE, 1)
-
         if value is None:
-            # Brak danych
             cv2.putText(img, "---", (x + w - 80, y), self.FONT, 1.2, (100, 100, 100), 1)
-            cv2.rectangle(img, (x + 10, y + 8), (x + w - 10, y + 14), (30, 30, 30), -1)
         else:
-            # Wartość
             val_str = f"{int(value)}"
             cv2.putText(img, val_str, (x + w - 80, y), self.FONT, 1.2, self.C_YELLOW, 1)
-
-            # Pasek
-            bar_max = w - 20
+            # Pasek postępu
+            bar_max = w - 130
             bar_cur = int((value / 180) * bar_max)
             bar_cur = max(0, min(bar_cur, bar_max))
+            cv2.rectangle(img, (x + 10, y + 8), (x + 10 + bar_cur, y + 14), self.C_MAIN, -1)
 
-            # Kolor paska (zielony jeśli > 150, czerwony jeśli < 90 - przykładowa logika)
-            c_bar = self.C_MAIN
-            if value < 90: c_bar = self.C_ALERT
-
-            cv2.rectangle(img, (x + 10, y + 8), (x + 10 + bar_max, y + 14), self.C_DIM, -1)
-            cv2.rectangle(img, (x + 10, y + 8), (x + 10 + bar_cur, y + 14), c_bar, -1)
-
-    def compose(self, frame_main, angles_dict, status, fps):
+    def compose(self, frame_front, frame_side, angles_dict, status, fps):
+        # Tworzymy puste płótno 1920x1080
         canvas = np.zeros((self.H, self.W, 3), dtype=np.uint8)
         canvas[:] = self.C_BG
 
-        # 1. Nagłówek
+        # --- 1. NAGŁÓWEK ---
         self._draw_box(canvas, 20, 20, self.W - 40, 50)
         date = datetime.datetime.now().strftime("%H:%M:%S")
-        head = f"CYBER TRENER SYSTEM  |  CPU: ONLINE  |  FPS: {int(fps)}  |  {date}"
+        head = f"CYBER TRENER SYSTEM | FPS: {int(fps)} | {date}"
         cv2.putText(canvas, head, (50, 55), self.FONT, 1.4, self.C_MAIN, 1)
 
-        # 2. Panel Boczny (Dane)
+        # --- 2. PANEL BOCZNY (WYNIKI) ---
         px, py = 20, 90
         ph = self.H - 110
-        self._draw_box(canvas, px, py, self.side_w, ph, "PARAMETRY RUCHU (L/P)")
+        self._draw_box(canvas, px, py, self.side_w, ph, "ANALIZA RUCHU")
 
-        # Lista kątów
         y = py + 60
-        gap = 40  # Mniejszy odstęp żeby zmieścić 8 wierszy
-
-        # Kolejność wyświetlania
+        gap = 40
         keys_order = [
-            "Lokiec (L)", "Lokiec (P)",
-            "Bark (L)", "Bark (P)",
-            "Biodro (L)", "Biodro (P)",
-            "Kolano (L)", "Kolano (P)"
+            "Lokiec (L)", "Lokiec (P)", "Bark (L)", "Bark (P)",
+            "Biodro (L)", "Biodro (P)", "Kolano (L)", "Kolano (P)"
         ]
 
         for key in keys_order:
             val = angles_dict.get(key)
-            # Rysujemy separator co 2 elementy (żeby oddzielić ręce od nóg)
-            if "Bark (P)" in key or "Biodro (P)" in key:
-                y += 10
-
+            if "Bark (P)" in key or "Biodro (P)" in key: y += 15
             self._draw_data_row(canvas, px + 10, y, self.side_w - 20, key, val)
             y += gap
 
-        # Status na dole panelu
-        cv2.line(canvas, (px + 20, y + 10), (px + self.side_w - 20, y + 10), self.C_MAIN, 1)
-        y += 50
-        cv2.putText(canvas, "ANALIZA:", (px + 20, y), self.FONT, 1.2, self.C_WHITE, 1)
+        # Status
         y += 40
+        cv2.putText(canvas, "STATUS:", (px + 20, y), self.FONT, 1.2, self.C_WHITE, 1)
+        y += 40
+        cv2.putText(canvas, status, (px + 20, y), self.FONT, 2.0, self.C_MAIN, 2)
 
-        c_stat = self.C_MAIN
-        if "BLAD" in status:
-            c_stat = self.C_ALERT
-        elif "BRAK" in status:
-            c_stat = (100, 100, 100)
+        # --- 3. OBSZAR WIDEO (Prawa strona) ---
+        # Dzielimy pozostałą wysokość na dwa okna
+        video_area_x = self.side_w + 40
+        video_area_w = self.W - video_area_x - 20
 
-        cv2.putText(canvas, status, (px + 20, y), self.FONT, 2.0, c_stat, 2)
+        # Wysokość jednego okna wideo (żeby zmieściły się dwa w pionie)
+        video_h = (self.H - 120) // 2
 
-        # Footer (Instrukcja)
-        cv2.putText(canvas, "WYJSCIE: [Q]  |  RESET: [R]", (px + 30, py + ph - 20), self.FONT, 1.1, (150, 150, 150), 1)
+        # KAMERA 1 (GÓRA)
+        self._draw_box(canvas, video_area_x, 90, video_area_w, video_h, "CAM 1: FRONT (USB)")
+        if frame_front is not None:
+            # Skalowanie z zachowaniem proporcji lub rozciągnięcie by wypełnić ramkę
+            resized = cv2.resize(frame_front, (video_area_w - 4, video_h - 30))
+            canvas[90 + 25: 90 + 25 + resized.shape[0], video_area_x + 2: video_area_x + 2 + resized.shape[1]] = resized
 
-        # 3. Wideo (Reszta ekranu)
-        vx = self.side_w + 40
-        vy = 90
-        vw = self.W - vx - 20
-        vh = int(vw * 9 / 16)  # Zachowujemy 16:9 dla głównej kamery
-
-        # Jeśli wideo jest za wysokie i wychodzi poza ekran, skalujemy w dół
-        if vy + vh > self.H - 20:
-            vh = self.H - vy - 40
-            vw = int(vh * 16 / 9)
-
-        self._draw_box(canvas, vx, vy, vw, vh, "PODGLAD GLOWNY")
-
-        if frame_main is not None:
-            # Resize
-            resized = cv2.resize(frame_main, (vw - 6, vh - 30))
-            canvas[vy + 25: vy + 25 + vh - 30, vx + 3: vx + 3 + vw - 6] = resized
-
-            # Celownik (ozdobnik)
-            cx, cy = vx + vw // 2, vy + vh // 2
-            cv2.line(canvas, (cx - 20, cy), (cx + 20, cy), self.C_MAIN, 1)
-            cv2.line(canvas, (cx, cy - 20), (cx, cy + 20), self.C_MAIN, 1)
+        # KAMERA 2 (DÓŁ)
+        y_cam2 = 90 + video_h + 10
+        self._draw_box(canvas, video_area_x, y_cam2, video_area_w, video_h, "CAM 2: SIDE (WIFI)")
+        if frame_side is not None:
+            resized_side = cv2.resize(frame_side, (video_area_w - 4, video_h - 30))
+            canvas[y_cam2 + 25: y_cam2 + 25 + resized_side.shape[0],
+            video_area_x + 2: video_area_x + 2 + resized_side.shape[1]] = resized_side
+        else:
+            cv2.putText(canvas, "BRAK SYGNALU", (video_area_x + 100, y_cam2 + 100), self.FONT, 2, (50, 50, 50), 2)
 
         return canvas

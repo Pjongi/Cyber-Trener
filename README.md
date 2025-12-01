@@ -55,11 +55,11 @@ Projekt wykorzystuje stos technologiczny oparty na języku **Python 3.10+**:
         - [x] Autorska funkcja obliczania kątów 3D z wektorów (wymóg "funkcji niskopoziomowych")
         - [x] Wygładzanie drgań punktów (filtracja sygnału, np. średnia krocząca)
     - [x] Prosta wizualizacja kątów na ekranie (np. przy łokciu/kolanie)
-- [ ] **Etap 2: Obsługa Drugiej Kamery**
-    - [ ] Konfiguracja zewnętrznego źródła (np. aplikacja IP Webcam na telefonie)
-    - [ ] **Implementacja wielowątkowości (Threading)** – pobieranie dwóch strumieni bez opóźnień
-    - [ ] Synchronizacja czasowa klatek (pobieranie klatek z tego samego momentu)
-    - [ ] Kalibracja (oznaczenie w kodzie, która kamera jest "Front", a która "Side")
+- [x] **Etap 2: Obsługa Drugiej Kamery**
+    - [x] Konfiguracja zewnętrznego źródła (np. aplikacja IP Webcam na telefonie)
+    - [x] **Implementacja wielowątkowości (Threading)** – pobieranie dwóch strumieni bez opóźnień
+    - [x] Synchronizacja czasowa klatek (pobieranie klatek z tego samego momentu)
+    - [x] Kalibracja (oznaczenie w kodzie, która kamera jest "Front", a która "Side")
 - [ ] **Etap 3: Logika Trenera (Algorytmy Regułowe)**
     - [ ] **Definicja reguł biomechanicznych** dla wybranego ćwiczenia (np. Przysiad):
         - [ ] Warunek: Głębokość (kąt kolanowy < 90 st.)
