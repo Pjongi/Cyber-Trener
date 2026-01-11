@@ -42,7 +42,9 @@ Projekt wykorzystuje stos technologiczny oparty na języku **Python 3.10+**:
 ## Instalacja i Uruchomienie
 
 * Instalacja bibliotek:
-    *pip install opencv-python mediapipe numpy*
+   * *pip install opencv-python mediapipe numpy*
+   * *pip install pyttsx3 SpeechRecognition pygame matplotlib types-PyYAML*
+  
 * Głowny plik: *main.py*
 
 ## Harmonogram pracy
