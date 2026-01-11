@@ -1,0 +1,43 @@
+{
+  "t_pose_trigger": {
+    "name": "POZYCJA STARTOWA (T-POSE)",
+    "description": "Rozłóż ręce szeroko i wytrzymaj 3 sekundy.",
+    "hold_time": 3,
+    "tolerance": 20,
+    "joints": {
+      "Bark (L)":   {"target": 90,  "source": "FRONT"},
+      "Bark (P)":   {"target": 90,  "source": "FRONT"},
+      "Lokiec (L)": {"target": 180, "source": "FRONT"},
+      "Lokiec (P)": {"target": 180, "source": "FRONT"}
+    }
+  },
+  "exercises": [
+    {
+      "name": "WOJOWNIK II (Prawa strona)",
+      "description": "Ugnij prawe kolano, ręce poziomo.",
+      "img_path": "assets/warrior2.jpg",
+      "duration": 10,
+      "tolerance": 25,
+      "joints": {
+        "Bark (L)":   {"target": 90,  "source": "FRONT"},
+        "Bark (P)":   {"target": 90,  "source": "FRONT"},
+        "Kolano (P)": {"target": 90,  "source": "SIDE"},
+        "Kolano (L)": {"target": 180, "source": "FRONT"},
+        "Biodro (P)": {"target": 100, "source": "SIDE"}
+      }
+    },
+    {
+      "name": "KRZESŁO (Chair Pose)",
+      "description": "Złącz nogi i ugnij kolana jakbyś siadał.",
+      "img_path": "assets/chair.jpg",
+      "duration": 10,
+      "tolerance": 20,
+      "joints": {
+        "Kolano (L)": {"target": 120, "source": "SIDE"},
+        "Kolano (P)": {"target": 120, "source": "SIDE"},
+        "Biodro (L)": {"target": 100, "source": "SIDE"},
+        "Bark (L)":   {"target": 170, "source": "SIDE"}
+      }
+    }
+  ]
+}
